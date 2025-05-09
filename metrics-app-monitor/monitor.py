@@ -4,7 +4,7 @@ import statistics
 from datetime import datetime
 import json
 
-def monitor_endpoint(url, iterations=1000):
+def monitor_endpoint(url, iterations=50):
     response_times = []
     errors = []
     counter_values = []
@@ -19,20 +19,32 @@ def monitor_endpoint(url, iterations=1000):
         try:
             start = time.time()
             response = requests.get(url)
+            counter_value = int(response.text.split(":")[1].strip())
             end = time.time()
             
             response_time = (end - start) * 1000  # Convert to milliseconds
             response_times.append(response_time)
             
+            # Debug: Print response details
+            print(f"\nIteration {i + 1}:")
+            print(f"Status Code: {response.status_code}")
+            
             if response.status_code == 200:
-                counter_value = response.json().get('counter', 0)
-                counter_values.append(counter_value)
-                
-                if i > 0 and counter_value != counter_values[-2] + 1:
+                try:
+                    counter_value = counter_value
+                    counter_values.append(counter_value)
+                    
+                    if i > 0 and counter_value != counter_values[-2] + 1:
+                        errors.append({
+                            'iteration': i,
+                            'expected': counter_values[-2] + 1,
+                            'received': counter_value
+                        })
+                except json.JSONDecodeError as je:
                     errors.append({
                         'iteration': i,
-                        'expected': counter_values[-2] + 1,
-                        'received': counter_value
+                        'error': f"JSON Decode Error: {str(je)}",
+                        'response_content': response.text
                     })
             else:
                 errors.append({
@@ -58,13 +70,13 @@ def monitor_endpoint(url, iterations=1000):
         'total_iterations': iterations,
         'successful_requests': len(response_times),
         'failed_requests': len(errors),
-        'average_response_time': statistics.mean(response_times),
-        'median_response_time': statistics.median(response_times),
-        'min_response_time': min(response_times),
-        'max_response_time': max(response_times),
+        'average_response_time': statistics.mean(response_times) if response_times else 0,
+        'median_response_time': statistics.median(response_times) if response_times else 0,
+        'min_response_time': min(response_times) if response_times else 0,
+        'max_response_time': max(response_times) if response_times else 0,
         'standard_deviation': statistics.stdev(response_times) if len(response_times) > 1 else 0,
         'total_duration': duration,
-        'requests_per_second': iterations / duration,
+        'requests_per_second': iterations / duration if duration > 0 else 0,
         'errors': errors
     }
     
@@ -94,4 +106,4 @@ def monitor_endpoint(url, iterations=1000):
     return stats
 
 if __name__ == "__main__":
-    monitor_endpoint("http://localhost:8080/counter") 
+    monitor_endpoint("http://localhost:62495/counter", iterations=5)  # Reduced iterations for testing 
