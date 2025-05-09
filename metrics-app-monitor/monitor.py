@@ -4,22 +4,23 @@ import statistics
 from datetime import datetime
 import json
 
-def monitor_endpoint(url, iterations=50):
+def monitor_endpoint(url, iterations=2):
     response_times = []
     errors = []
-    counter_values = []
     start_time = datetime.now()
     
     print(f"Starting monitoring at {start_time}")
     print(f"Target URL: {url}")
     print(f"Number of iterations: {iterations}")
     print("-" * 50)
+
+    first_counter_value = None
     
     for i in range(iterations):
         try:
             start = time.time()
             response = requests.get(url)
-            counter_value = int(response.text.split(":")[1].strip())
+
             end = time.time()
             
             response_time = (end - start) * 1000  # Convert to milliseconds
@@ -31,21 +32,25 @@ def monitor_endpoint(url, iterations=50):
             
             if response.status_code == 200:
                 try:
-                    counter_value = counter_value
-                    counter_values.append(counter_value)
+                    counter_value = int(response.text.split(":")[1].strip())
+                    if i == 0:
+                        first_counter_value = counter_value
+                        print("First counter value:", first_counter_value)
                     
-                    if i > 0 and counter_value != counter_values[-2] + 1:
+                    if i > 0 and counter_value != (first_counter_value + i):
+                        print(f"Counter value mismatch at iteration {i + 1}: expected {first_counter_value + i}, got {counter_value}")
                         errors.append({
                             'iteration': i,
-                            'expected': counter_values[-2] + 1,
+                            'expected': first_counter_value + i,
                             'received': counter_value
                         })
-                except json.JSONDecodeError as je:
+                except Exception as e:
                     errors.append({
                         'iteration': i,
-                        'error': f"JSON Decode Error: {str(je)}",
-                        'response_content': response.text
+                        'error': str(e),
+                        'response': response.text
                     })
+
             else:
                 errors.append({
                     'iteration': i,
@@ -106,4 +111,4 @@ def monitor_endpoint(url, iterations=50):
     return stats
 
 if __name__ == "__main__":
-    monitor_endpoint("http://localhost:62495/counter", iterations=5)  # Reduced iterations for testing 
+    monitor_endpoint("http://localhost:52172/counter", iterations=5)  # Reduced iterations for testing
